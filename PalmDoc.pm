@@ -6,12 +6,12 @@ use vars qw($text $doc $doc_text @ISA $VERSION @EXPORT);
 require Exporter;
 
 use Pod::Parser;
-use Palm::PalmDoc;
+use Palm::PalmDoc '0.0.6';
 @ISA = qw(Exporter Pod::Parser);
 
 @EXPORT = qw();
 
-$VERSION = '0.0.1';
+$VERSION = '0.0.2';
 
 $doc = Palm::PalmDoc->new();
 
@@ -37,30 +37,30 @@ sub interior_sequence {
     return "$seq_command<$seq_argument>";
 }
 
-sub outfile {
-    my $self = shift;
-    if (@_)
-    { $doc->outfile(shift); }
-}
-
 sub title {
-    my $self = shift;
+    my $parser = shift;
     if (@_)
     { $doc->title(shift); }
 }
 
 sub compress {
-    my $self = shift;
+    my $parser = shift;
     if (@_)
     { $doc->compression(shift); }
 }
 
-sub end_input {
-    $doc_text = $doc->body($text);
-    $doc->write_text; #if $doc->outfile;
+sub begin_pod {
+    my $parser = shift;
+    $doc->outfile($parser->output_file()) if $parser->output_file();
 }
 
-#sub get_text { return $text; }
+sub end_pod {
+    my $parser = shift;
+    $doc->body($text) if $text;
+    $doc->write_text if $doc->outfile;
+    my $fhandle = $parser->output_handle();
+    print $fhandle $doc->pdb_header, $doc->body if $fhandle;
+}
 
 1;
 __END__
@@ -74,10 +74,33 @@ Pod::PalmDoc - Convert POD Data to PalmDoc
   use Pod::PalmDoc;
 
   my $parser = Pod::PalmDoc->new();
-  $parser->outfile("foo.pdb");
   $parser->compress(1);
   $parser->title("POD Foo");
-  $parser->parse_from_file($ARGV[0]);
+  $parser->parse_from_file($ARGV[0],"foo.pdb");
+
+  -or-
+
+  use Pod::PalmDoc;
+
+  my $parser = Pod::PalmDoc->new();
+  $parser->compress(1);
+  $parser->title("POD Foo");
+  open(FOO,">foo.pdb") || die $!;
+  $parser->parse_from_filehandle(\*STDIN, \*FOO); 
+  close(FOO);
+
+  -or-
+
+  use Pod::PalmDoc;
+
+  my $parser = Pod::PalmDoc->new();
+  $parser->compress(1);
+  $parser->title("POD Foo");
+  open(FOO,"<Pod/PalmDoc.pm") || die $!;
+  open(BAR,">foo.pdb") || die $!;
+  $parser->parse_from_filehandle(\*FOO, \*BAR); 
+  close(FOO);
+  close(BAR);
 
 =head1 DESCRIPTION
 
@@ -86,9 +109,7 @@ It uses Palm::PalmDoc and inherits most of its methods from Pod::Parser.
 
 =head1 TODO
 
-Loads! This is a VERY quick. Future releases probably will inherit from
-Pod::Select instead of Pod::Parser. The filehandle passing should be added.
-Examples will be added and POD should be completed.
+Future releases probably will inherit from Pod::Select instead of Pod::Parser.
 
 =head1 DISCLAIMER
 
@@ -97,7 +118,7 @@ found on http://www.gnu.org/copyleft/gpl.html
 
 =head1 VERSION
 
-This is Pod::PalmDoc 0.0.1.
+This is Pod::PalmDoc 0.0.2.
 
 =head1 AUTHOR
 
